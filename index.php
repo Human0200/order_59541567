@@ -380,6 +380,9 @@ if (!empty($custom_fields_values) && is_array($custom_fields_values)) {
                                 'ExtraFields_count' => isset($student['ExtraFields']) && is_array($student['ExtraFields']) ? count($student['ExtraFields']) : 0
                             ], 'index.php');
 
+                            log_info("ALL ExtraFields RAW", $student['ExtraFields'], 'index.php');
+
+
                             if (isset($student['ExtraFields']) && is_array($student['ExtraFields'])) {
                                 foreach ($student['ExtraFields'] as $field) {
                                     $field_name = $field['Name'] ?? $field['name'] ?? '';
