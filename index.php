@@ -223,7 +223,16 @@ function extractContractLinkFromLead(array $lead): ?string
             return $field["values"][0]["value"] ?? null;
         }
     }
+
+    log_info("TEST: найдено поле договора", [
+        'field_id' => $field["field_id"] ?? null,
+        'value' => $field["values"][0]["value"] ?? null
+    ], 'index.php');
+
+
     return null;
+
+    log_warning("TEST: поле договора не найдено", [], 'index.php');
 }
 
 
@@ -237,6 +246,7 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
     $contact = get($subdomain, "/api/v4/contacts/{$contactId}", $data);
 
     $email = null;
+
     foreach ($contact["custom_fields_values"] ?? [] as $field) {
         if (($field["field_code"] ?? null) === 'EMAIL') {
             $email = $field["values"][0]["value"] ?? null;
@@ -244,6 +254,11 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
     }
 
     if (!$email) return;
+
+    log_info("TEST: email контакта", [
+        'contact_id' => $contactId,
+        'email' => $email
+    ], 'index.php');
 
     $apiConfig = get_config('api');
     $authKey = $apiConfig['auth_key'];
@@ -256,8 +271,19 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
 
     if (empty($student)) return;
 
+    log_info(
+        "TEST: ответ GetStudents",
+        $student,
+        'index.php'
+    );
+
     $clientId = $student['ClientId'] ?? $student[0]['ClientId'] ?? null;
     if (!$clientId) return;
+
+    log_info("TEST: обновляем поле Договор Оки", [
+        'clientId' => $clientId,
+        'contract_link' => $contractLink
+    ], 'index.php');
 
     // Обновляем поле
     callHollyhopApi('EditUserExtraFields', [
@@ -269,6 +295,10 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
             ]
         ]
     ], $authKey, $apiBaseUrl);
+
+    log_info("TEST: поле Договор Оки обновлено", [
+        'clientId' => $clientId
+    ], 'index.php');
 }
 
 /**
