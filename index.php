@@ -259,16 +259,30 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
     if (empty($student)) return;
 
     $clientId = null;
-    if (isset($student['Students'])) {
+
+    if (isset($student['Students']) && is_array($student['Students'])) {
         foreach ($student['Students'] as $s) {
-            if (isset($s['EMail']) && $s['EMail'] === $email) {
-                $clientId = $s['ClientId'];
+            if (
+                !empty($s['EMail']) &&
+                mb_strtolower(trim($s['EMail'])) === mb_strtolower(trim($email))
+            ) {
+
+                $clientId = $s['ClientId'] ?? null;
                 break;
             }
         }
     }
-    log_info('clientId', $clientId, 'index.php');
-    if (!$clientId) return;
+
+    log_info('TEST: найденный clientId', [
+        'email_from_amo' => $email,
+        'clientId' => $clientId
+    ], 'index.php');
+
+    if (!$clientId) {
+        log_warning('TEST: clientId не найден по email', $student, 'index.php');
+        return;
+    }
+
 
     log_info("TEST: обновляем поле Договор Оки", [
         'clientId' => $clientId,
