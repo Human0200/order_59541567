@@ -766,14 +766,14 @@ try {
             // Добавляем мобильный телефон, если указан
             if (!empty($post_data['phone'])) {
                 $edit_contacts_params['mobile'] = trim($post_data['phone']);
-                $edit_contacts_params['useMobileBySystem'] = true; // Разрешаем использование системой
+                $edit_contacts_params['useMobileBySystem'] = false; // Разрешаем использование системой
                 log_message("Подготовка обновления контактов: телефон указан", ['phone' => $edit_contacts_params['mobile']]);
             }
 
             // Добавляем email, если указан
             if (!empty($post_data['email'])) {
                 $edit_contacts_params['eMail'] = trim($post_data['email']);
-                $edit_contacts_params['useEMailBySystem'] = true; // Разрешаем использование системой
+                $edit_contacts_params['useEMailBySystem'] = false; // Разрешаем использование системой
                 log_message("Подготовка обновления контактов: email указан", ['email' => $edit_contacts_params['eMail']]);
             }
 
