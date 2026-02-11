@@ -264,7 +264,11 @@ function buildStudentDataFromLead(array $lead, int $leadId): array
         'link' => "https://{$subdomain}.amocrm.ru/leads/detail/{$leadId}",
         'gender' => 'F',
         'amo_lead_id' => $leadId,
-        'amo_subdomain' => $subdomain
+        'amo_subdomain' => $subdomain,
+
+        // 🔥 ВАЖНО ДЛЯ КОНВЕРТОВ
+        'useMobileBySystem' => false,
+        'useEMailBySystem'  => false
     ];
 
     // Извлекаем кастомные поля сделки
