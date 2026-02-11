@@ -206,7 +206,6 @@ function processAmoCrmLead(int $leadId): void
 
     $contractLink = extractContractLinkFromLead($lead);
 
-    log_info("ССЫЛКА ДАГАВОРА", $contractLink, 'index.php');
     if ($contractLink !== null) {
         updateContractInHollyhopByEmail($lead, $contractLink);
     }
@@ -225,15 +224,7 @@ function extractContractLinkFromLead(array $lead): ?string
         }
     }
 
-    log_info("TEST: найдено поле договора", [
-        'field_id' => $field["field_id"] ?? null,
-        'value' => $field["values"][0]["value"] ?? null
-    ], 'index.php');
-
-
     return null;
-
-    log_warning("TEST: поле договора не найдено", [], 'index.php');
 }
 
 
@@ -256,11 +247,6 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
 
     if (!$email) return;
 
-    log_info("TEST: email контакта", [
-        'contact_id' => $contactId,
-        'email' => $email
-    ], 'index.php');
-
     $apiConfig = get_config('api');
     $authKey = $apiConfig['auth_key'];
     $apiBaseUrl = $apiConfig['base_url'];
@@ -272,13 +258,15 @@ function updateContractInHollyhopByEmail(array $lead, string $contractLink): voi
 
     if (empty($student)) return;
 
-    log_info(
-        "TEST: ответ GetStudents",
-        $student,
-        'index.php'
-    );
-
-    $clientId = $student['ClientId'] ?? $student[0]['ClientId'] ?? null;
+    $clientId = null;
+    if (isset($student['Students'])) {
+        foreach ($student['Students'] as $s) {
+            if (isset($s['EMail']) && $s['EMail'] === $email) {
+                $clientId = $s['ClientId'];
+                break;
+            }
+        }
+    }
     if (!$clientId) return;
 
     log_info("TEST: обновляем поле Договор Оки", [
