@@ -206,6 +206,7 @@ function processAmoCrmLead(int $leadId): void
 
     $contractLink = extractContractLinkFromLead($lead);
     $clientId = extractClientIdFromProfileLink($lead);
+    log_info("clientId", $clientId, "index.php");
 
     if ($contractLink && $clientId) {
         updateContractInHollyhopByClientId((int)$clientId, $contractLink);
