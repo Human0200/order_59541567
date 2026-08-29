@@ -168,12 +168,73 @@ function normalize_extra_field_name($name)
     return mb_strtolower($name, 'UTF-8');
 }
 
+function normalize_holly_birth_date($value)
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (preg_match('/^\d{13}$/', $value)) {
+        $timestamp = (int) floor(((int) $value) / 1000);
+        return date('Y-m-d', $timestamp);
+    }
+
+    if (preg_match('/^\d{9,10}$/', $value)) {
+        return date('Y-m-d', (int) $value);
+    }
+
+    if (preg_match('/^(\d{2})\.(\d{2})\.(\d{4})$/', $value, $matches)) {
+        return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+    }
+
+    if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $value, $matches)) {
+        return $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+    }
+
+    return $value;
+}
+
+function normalize_holly_custom_date($value)
+{
+    $value = trim((string)$value);
+    if ($value === '') {
+        return '';
+    }
+
+    if (preg_match('/^\d{13}$/', $value)) {
+        $timestamp = (int) floor(((int) $value) / 1000);
+        return date('d.m.Y', $timestamp);
+    }
+
+    if (preg_match('/^\d{9,10}$/', $value)) {
+        return date('d.m.Y', (int) $value);
+    }
+
+    if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $value, $matches)) {
+        return $matches[3] . '.' . $matches[2] . '.' . $matches[1];
+    }
+
+    return $value;
+}
+
 function build_student_extra_fields_from_post_data($post_data)
 {
     $extra_fields = [];
 
+    $append_field = static function (array &$fields, string $name, $value): void {
+        if ($value === null || trim((string) $value) === '') {
+            return;
+        }
+
+        $fields[] = [
+            'name' => $name,
+            'value' => trim((string) $value)
+        ];
+    };
+
     if (empty($post_data['birthDate']) && !empty($post_data['Дата рождения'])) {
-        $post_data['birthDate'] = trim((string)$post_data['Дата рождения']);
+        $post_data['birthDate'] = normalize_holly_birth_date($post_data['Дата рождения']);
     }
 
     if (!empty($post_data['childName'])) {
@@ -183,20 +244,13 @@ function build_student_extra_fields_from_post_data($post_data)
         ];
     }
 
-    if (!empty($post_data['telegram'])) {
-        $extra_fields[] = [
-            'name' => 'Телеграмм',
-            'value' => trim((string)$post_data['telegram'])
-        ];
-    }
-
     $child_birth_date = '';
     if (!empty($post_data['Дата рождения'])) {
-        $child_birth_date = trim((string)$post_data['Дата рождения']);
+        $child_birth_date = normalize_holly_birth_date($post_data['Дата рождения']);
     } elseif (!empty($post_data['childBirthDate'])) {
-        $child_birth_date = trim((string)$post_data['childBirthDate']);
+        $child_birth_date = normalize_holly_birth_date($post_data['childBirthDate']);
     } elseif (!empty($post_data['birthDate'])) {
-        $child_birth_date = trim((string)$post_data['birthDate']);
+        $child_birth_date = normalize_holly_birth_date($post_data['birthDate']);
     }
 
     if ($child_birth_date !== '') {
@@ -205,6 +259,31 @@ function build_student_extra_fields_from_post_data($post_data)
             'value' => $child_birth_date
         ];
     }
+
+    // Сохраняем учебные параметры в пользовательских полях Hollyhop.
+    // Это нужно и для новых, и для уже существующих учеников.
+    $append_field($extra_fields, 'Пакет (индив)', $post_data['hollyPackage'] ?? null);
+    $append_field($extra_fields, 'Количество уроков (индив)', $post_data['hollyLessonsCount'] ?? null);
+    $append_field($extra_fields, 'Срок пакета (индив)', $post_data['hollyPackageTerm'] ?? null);
+    $append_field($extra_fields, 'Интенсивность (индив)', $post_data['hollyIntensity'] ?? null);
+    $append_field($extra_fields, 'Длительность урока (индив)', $post_data['hollyLessonDuration'] ?? null);
+    $append_field($extra_fields, 'Место проведения (индив)', $post_data['hollyLessonLocation'] ?? null);
+    $append_field($extra_fields, 'Преподаватель (индив)', $post_data['hollyTeacher'] ?? null);
+    $append_field($extra_fields, 'Фиксация слота (индив)', $post_data['hollySlotFixed'] ?? null);
+    $append_field($extra_fields, 'Слот день+время (индив)', $post_data['hollySchedule'] ?? null);
+    $append_field($extra_fields, 'Скидка (индив)', $post_data['hollyDiscount'] ?? null);
+    $append_field($extra_fields, 'VIP (индив)', $post_data['hollyVip'] ?? null);
+    $append_field($extra_fields, 'Цена 1 занятия (индив)', $post_data['hollyLessonPrice'] ?? null);
+    $append_field($extra_fields, 'Итого стоимость со скидкой (индив)', $post_data['hollyTotalPrice'] ?? null);
+    $append_field($extra_fields, 'Комбо Актив (индив)', $post_data['hollyComboActive'] ?? null);
+    $append_field($extra_fields, 'Языковой клуб (индив)', $post_data['hollyLanguageClub'] ?? null);
+    $append_field($extra_fields, 'Лимит переносов (индив)', $post_data['hollyTransferLimit'] ?? null);
+    $append_field($extra_fields, 'Пауза / недель (индив)', $post_data['hollyFreePause'] ?? null);
+    $append_field(
+        $extra_fields,
+        'Срок оплаты 50/50 (вторая часть) индив',
+        normalize_holly_custom_date($post_data['hollySecondPaymentDue'] ?? null)
+    );
 
     return $extra_fields;
 }
@@ -236,8 +315,8 @@ function split_full_name($full_name)
 function build_agent_contacts_payload($student_info, $post_data, $client_id)
 {
     $parent_name = trim((string)($post_data['parentName'] ?? ''));
-    $parent_phone = trim((string)($post_data['parentPhone'] ?? $post_data['phone'] ?? ''));
-    $parent_email = trim((string)($post_data['parentEmail'] ?? $post_data['email'] ?? ''));
+    $parent_phone = trim((string)($post_data['parentPhone'] ?? ''));
+    $parent_email = trim((string)($post_data['parentEmail'] ?? ''));
     $emergency_phone = trim((string)($post_data['parentEmergencyPhone'] ?? ''));
 
     if ($parent_name === '' && $parent_phone === '' && $parent_email === '' && $emergency_phone === '') {
@@ -288,7 +367,6 @@ function build_agent_contacts_payload($student_info, $post_data, $client_id)
         'middleName' => '',
         'lastName' => '',
         'whoIs' => 'Экстренный',
-        'mobile' => $emergency_phone,
         'useMobileBySystem' => false,
         'phone' => $emergency_phone,
         'eMail' => '',
@@ -345,11 +423,6 @@ function build_agent_contacts_payload($student_info, $post_data, $client_id)
 function build_ind_client_params_payload($post_data, $client_id)
 {
     if (empty($client_id)) {
-        return null;
-    }
-
-    $source_system = trim((string)($post_data['sourceSystem'] ?? ''));
-    if ($source_system !== 'okidoki') {
         return null;
     }
 
@@ -532,15 +605,22 @@ try {
         $post_data['middleName'] = $student_name['middleName'];
     }
     if (empty($post_data['birthDate']) && !empty($post_data['Дата рождения'])) {
-        $post_data['birthDate'] = trim((string)$post_data['Дата рождения']);
+        $post_data['birthDate'] = normalize_holly_birth_date($post_data['Дата рождения']);
     }
     if (empty($post_data['birthDate']) && !empty($post_data['childBirthDate'])) {
-        $post_data['birthDate'] = $post_data['childBirthDate'];
+        $post_data['birthDate'] = normalize_holly_birth_date($post_data['childBirthDate']);
+    }
+    if (!empty($post_data['birthDate'])) {
+        $post_data['birthDate'] = normalize_holly_birth_date($post_data['birthDate']);
     }
 
     foreach ($optional_fields as $post_field => $api_field) {
         if (!empty($post_data[$post_field])) {
-            $student_params[$api_field] = $post_data[$post_field];
+            $value = $post_data[$post_field];
+            if ($post_field === 'birthDate') {
+                $value = normalize_holly_birth_date($value);
+            }
+            $student_params[$api_field] = $value;
         }
     }
 
@@ -580,13 +660,29 @@ try {
             'Стандарт' => 'Стандарт',
             'Индивидуальный' => 'Индивидуальный',
             'Индивидуально' => 'Индивидуальный',
-            'Индивидуально онлайн' => 'Индивидуальный',
+            'Индивидуально онлайн' => 'Онлайн. Индивидуально',
+            'Индивидуально очно' => 'Индивидуальный',
             'Индивидуальные' => 'Индивидуальный',
-            'Курсы за рубежом' => 'Индивидуальный',
+            'Курсы за рубежом' => 'Обучение за рубежом',
             'Группа' => 'Группа',
-            'Полная группа' => 'Полная группа',
+            'В группе' => 'Группа',
+            'Группа онлайн' => 'Онлайн.Группа',
+            'Группа очно' => 'Группа',
+            'Полная группа' => 'Группа',
             'Общий' => 'Общий',
-            'Интенсивный' => 'Интенсивный'
+            'Интенсивный' => 'Интенсивный',
+            'Спецкурс' => 'Спецкурс',
+            'Бизнес' => 'Бизнес',
+            'Летний лагерь в Москве' => 'Летний лагерь в Москве',
+            'Корпоративное обучение' => 'Корпоративное обучение',
+            'Лагерь за рубежом' => 'Лагерь за рубежом',
+            'Обучение за рубежом' => 'Обучение за рубежом',
+            'Языковой клуб' => 'Языковой клуб',
+            'Поступление в вуз' => 'Поступление в ВУЗ',
+            'Поступление в ВУЗ' => 'Поступление в ВУЗ',
+            'Самостятельно/Актив' => 'Самостоятельно на платформе',
+            'Самостоятельно/Актив' => 'Самостоятельно на платформе',
+            'Самостоятельно с педагогом/ актив+' => 'Самостоятельно на платформе',
         ];
 
         $learning_type_value = (string)$post_data['learningType'];
@@ -1198,16 +1294,25 @@ if (!empty($post_data['officeOrCompanyId'])) {
         log_message("Используем student_id как clientId (fallback): {$client_id}");
     }
 
-    // Обновляем контактные данные через EditContacts (только для новых студентов)
+    // Обновляем контактные данные через EditContacts для новых и существующих студентов.
+    // Иначе при повторной синхронизации телефон и email в Hollyhop могут оставаться старыми.
     log_message("ШАГ 7: Обновление контактных данных", [
         'is_update' => $is_update,
         'has_client_id' => !empty($client_id),
         'has_phone' => !empty($post_data['phone']),
-        'has_email' => !empty($post_data['email'])
+        'has_email' => !empty($post_data['email']),
+        'has_telegram' => !empty($post_data['telegram'])
     ], 'INFO');
 
-    if (!$is_update && $client_id && (!empty($post_data['phone']) || !empty($post_data['email']))) {
-        log_message("Вызов EditContacts для обновления контактов нового студента", [
+    $student_contact_phone = trim((string)($post_data['phone'] ?? $post_data['parentPhone'] ?? ''));
+    $student_contact_email = trim((string)($post_data['email'] ?? $post_data['parentEmail'] ?? ''));
+
+    if ($client_id && (
+        $student_contact_phone !== ''
+        || $student_contact_email !== ''
+        || !empty($post_data['telegram'])
+    )) {
+        log_message("Вызов EditContacts для обновления контактных данных студента", [
             'client_id' => $client_id
         ], 'INFO');
         try {
@@ -1218,17 +1323,31 @@ if (!empty($post_data['officeOrCompanyId'])) {
             ];
 
             // Добавляем мобильный телефон, если указан
-            if (!empty($post_data['phone'])) {
-                $edit_contacts_params['mobile'] = trim($post_data['phone']);
+            if ($student_contact_phone !== '') {
+                $edit_contacts_params['mobile'] = $student_contact_phone;
                 $edit_contacts_params['useMobileBySystem'] = false; // запрещаем использование системой
                 log_message("Подготовка обновления контактов: телефон указан", ['phone' => $edit_contacts_params['mobile']]);
             }
 
             // Добавляем email, если указан
-            if (!empty($post_data['email'])) {
-                $edit_contacts_params['eMail'] = trim($post_data['email']);
+            if ($student_contact_email !== '') {
+                $edit_contacts_params['eMail'] = $student_contact_email;
                 $edit_contacts_params['useEMailBySystem'] = false; // запрещаем использование системой
                 log_message("Подготовка обновления контактов: email указан", ['email' => $edit_contacts_params['eMail']]);
+            }
+
+            if (!empty($post_data['telegram'])) {
+                $telegram_value = trim((string)$post_data['telegram']);
+                if ($telegram_value !== '') {
+                    if (!preg_match('~^https?://~i', $telegram_value)) {
+                        $telegram_value = ltrim($telegram_value, '@');
+                        $telegram_value = 'https://t.me/' . $telegram_value;
+                    }
+                    $edit_contacts_params['socialNetworkPage'] = $telegram_value;
+                    log_message("Подготовка обновления контактов: соцсеть указана", [
+                        'socialNetworkPage' => $edit_contacts_params['socialNetworkPage']
+                    ]);
+                }
             }
 
             // useEMailBySystem должно быть всегда передано (обязательное поле API)
@@ -1490,8 +1609,11 @@ if (!empty($post_data['officeOrCompanyId'])) {
         if ($mapped_gender !== null) {
             $edit_personal_params['gender'] = $mapped_gender;
         }
-        if (!empty($post_data['birthDate'])) {
-            $edit_personal_params['birthday'] = $post_data['birthDate'];
+        $normalized_personal_birthday = normalize_holly_birth_date(
+            $post_data['birthDate'] ?? $post_data['childBirthDate'] ?? $post_data['Дата рождения'] ?? ''
+        );
+        if ($normalized_personal_birthday !== '') {
+            $edit_personal_params['birthday'] = $normalized_personal_birthday;
         }
 
         try {

@@ -952,6 +952,39 @@ function call_index_for_student(int $lead_id, array $lead, string $subdomain, ar
         'response_preview' => substr((string) $response, 0, 300)
     ]);
 
+    // index.php возвращает clientId и Id профиля сразу. Не ждем, пока
+    // повторное чтение сделки из AmoCRM увидит записанную ссылку.
+    $index_payload = null;
+    $response_json = trim((string) $response);
+    $decoded_response = json_decode($response_json, true);
+    if (is_array($decoded_response)) {
+        $index_payload = $decoded_response;
+    } elseif (preg_match('/(\{.*\})/s', $response_json, $matches)) {
+        $decoded_response = json_decode($matches[1], true);
+        if (is_array($decoded_response)) {
+            $index_payload = $decoded_response;
+        }
+    }
+
+    $response_client_id = is_array($index_payload)
+        ? ($index_payload['clientId'] ?? $index_payload['client_id'] ?? null)
+        : null;
+    $response_profile_id = is_array($index_payload)
+        ? ($index_payload['Id'] ?? $index_payload['id'] ?? $index_payload['profile_id'] ?? null)
+        : null;
+    $response_profile_link = is_array($index_payload)
+        ? ($index_payload['link'] ?? $index_payload['profile_link'] ?? null)
+        : null;
+
+    if ($response_client_id) {
+        log_payment_info("clientId получен непосредственно из ответа index.php", [
+            'lead_id' => $lead_id,
+            'clientId' => $response_client_id,
+            'profile_id' => $response_profile_id,
+            'profile_link' => $response_profile_link,
+        ]);
+    }
+
     // После вызова index.php проверяем, записал ли он ссылку на профиль
     // обратно в сделку AmoCRM.
 
@@ -964,6 +997,15 @@ function call_index_for_student(int $lead_id, array $lead, string $subdomain, ar
     $profile_link     = null;
     $resolved_profile_id = null;
 
+    if ($response_profile_link) {
+        $profile_link = trim((string) $response_profile_link);
+    }
+    if ($response_profile_id && is_numeric($response_profile_id)) {
+        $resolved_profile_id = (int) $response_profile_id;
+    } elseif ($profile_link && preg_match('/\/Profile\/(\d+)/', $profile_link, $matches)) {
+        $resolved_profile_id = (int) $matches[1];
+    }
+
     foreach ($updated_lead['custom_fields_values'] ?? [] as $field) {
         if (($field['field_id'] ?? null) == AMO_FIELD_PROFILE_LINK && !empty($field['values'][0]['value'])) {
             $profile_link = trim((string) $field['values'][0]['value']);
@@ -974,21 +1016,24 @@ function call_index_for_student(int $lead_id, array $lead, string $subdomain, ar
         }
     }
 
-    if (!$profile_link) {
+    if (!$profile_link && !$response_client_id) {
         log_payment_warning("После вызова index.php ссылка на профиль в сделке не появилась", [
             'lead_id' => $lead_id
         ]);
         throw new Exception("index.php не записал ссылку на профиль в сделку {$lead_id}");
     }
 
-    log_payment_info("Ссылка на профиль найдена после index.php", [
+    log_payment_info($profile_link
+        ? "Ссылка на профиль найдена после index.php"
+        : "Ссылка еще не видна в AmoCRM, используем clientId из ответа index.php", [
         'lead_id'    => $lead_id,
         'profile_link' => $profile_link,
-        'profile_id' => $resolved_profile_id
+        'profile_id' => $resolved_profile_id,
+        'clientId_from_response' => $response_client_id,
     ]);
 
     // Получаем clientId из Hollyhop по profile_id
-    $client_id = null;
+    $client_id = $response_client_id ? (int) $response_client_id : null;
     if ($resolved_profile_id) {
         try {
             $api_response = call_hollyhop_api('GetStudents', ['Id' => $resolved_profile_id], $auth_key, $api_base_url);
